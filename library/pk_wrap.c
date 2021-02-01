@@ -669,7 +669,7 @@ static int rsa_alt_decrypt_wrap( void *ctx,
 #if defined(MBEDTLS_RSA_C)
 static int rsa_alt_check_pair( const void *pub, const void *prv )
 {
-    unsigned char sig[MBEDTLS_MPI_MAX_SIZE];
+    unsigned char *sig;
     unsigned char hash[32];
     size_t sig_len = 0;
     int ret;
@@ -677,21 +677,29 @@ static int rsa_alt_check_pair( const void *pub, const void *prv )
     if( rsa_alt_get_bitlen( prv ) != rsa_get_bitlen( pub ) )
         return( MBEDTLS_ERR_RSA_KEY_CHECK_FAILED );
 
+    sig = mbedtls_calloc( 1, MBEDTLS_MPI_MAX_SIZE );
+    if( sig == NULL ) {
+        return( MBEDTLS_ERR_PK_ALLOC_FAILED );
+    }
+
     memset( hash, 0x2a, sizeof( hash ) );
 
     if( ( ret = rsa_alt_sign_wrap( (void *) prv, MBEDTLS_MD_NONE,
                                    hash, sizeof( hash ),
                                    sig, &sig_len, NULL, NULL ) ) != 0 )
     {
+        mbedtls_free( sig );
         return( ret );
     }
 
     if( rsa_verify_wrap( (void *) pub, MBEDTLS_MD_NONE,
                          hash, sizeof( hash ), sig, sig_len ) != 0 )
     {
+        mbedtls_free( sig );
         return( MBEDTLS_ERR_RSA_KEY_CHECK_FAILED );
     }
 
+    mbedtls_free( sig );
     return( 0 );
 }
 #endif /* MBEDTLS_RSA_C */

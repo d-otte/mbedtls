@@ -556,15 +556,21 @@ int mbedtls_pk_write_pubkey_pem( mbedtls_pk_context *key, unsigned char *buf, si
 int mbedtls_pk_write_key_pem( mbedtls_pk_context *key, unsigned char *buf, size_t size )
 {
     int ret;
-    unsigned char output_buf[PRV_DER_MAX_BYTES];
+    unsigned char *output_buf;
     const char *begin, *end;
     size_t olen = 0;
 
     PK_VALIDATE_RET( key != NULL );
     PK_VALIDATE_RET( buf != NULL || size == 0 );
 
-    if( ( ret = mbedtls_pk_write_key_der( key, output_buf, sizeof(output_buf) ) ) < 0 )
+    output_buf = mbedtls_calloc(1, PRV_DER_MAX_BYTES);
+    if (output_buf == NULL) {
+        return( MBEDTLS_ERR_PK_ALLOC_FAILED );
+    }
+    if( ( ret = mbedtls_pk_write_key_der( key, output_buf, PRV_DER_MAX_BYTES ) ) < 0 ) {
+        mbedtls_free( output_buf );
         return( ret );
+    }
 
 #if defined(MBEDTLS_RSA_C)
     if( mbedtls_pk_get_type( key ) == MBEDTLS_PK_RSA )
@@ -582,15 +588,20 @@ int mbedtls_pk_write_key_pem( mbedtls_pk_context *key, unsigned char *buf, size_
     }
     else
 #endif
+    {
+        mbedtls_free( output_buf );
         return( MBEDTLS_ERR_PK_FEATURE_UNAVAILABLE );
+    }
 
     if( ( ret = mbedtls_pem_write_buffer( begin, end,
-                                  output_buf + sizeof(output_buf) - ret,
+                                  output_buf + PRV_DER_MAX_BYTES - ret,
                                   ret, buf, size, &olen ) ) != 0 )
     {
+        mbedtls_free( output_buf );
         return( ret );
     }
 
+    mbedtls_free( output_buf );
     return( 0 );
 }
 #endif /* MBEDTLS_PEM_WRITE_C */

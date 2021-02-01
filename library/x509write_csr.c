@@ -357,27 +357,36 @@ int mbedtls_x509write_csr_der( mbedtls_x509write_csr *ctx, unsigned char *buf,
 #define PEM_END_CSR             "-----END CERTIFICATE REQUEST-----\n"
 
 #if defined(MBEDTLS_PEM_WRITE_C)
+
+#define OUTPUT_BUF_SIZE 4096
 int mbedtls_x509write_csr_pem( mbedtls_x509write_csr *ctx, unsigned char *buf, size_t size,
                        int (*f_rng)(void *, unsigned char *, size_t),
                        void *p_rng )
 {
     int ret;
-    unsigned char output_buf[4096];
+    unsigned char *output_buf;
     size_t olen = 0;
 
-    if( ( ret = mbedtls_x509write_csr_der( ctx, output_buf, sizeof(output_buf),
+    output_buf = mbedtls_calloc(1, OUTPUT_BUF_SIZE);
+    if (output_buf == NULL) {
+        return (MBEDTLS_ERR_X509_ALLOC_FAILED);
+    }
+    if( ( ret = mbedtls_x509write_csr_der( ctx, output_buf, OUTPUT_BUF_SIZE,
                                    f_rng, p_rng ) ) < 0 )
     {
+    	mbedtls_free(output_buf);
         return( ret );
     }
 
     if( ( ret = mbedtls_pem_write_buffer( PEM_BEGIN_CSR, PEM_END_CSR,
-                                  output_buf + sizeof(output_buf) - ret,
+                                  output_buf + OUTPUT_BUF_SIZE - ret,
                                   ret, buf, size, &olen ) ) != 0 )
     {
+        mbedtls_free(output_buf);
         return( ret );
     }
 
+    mbedtls_free(output_buf);
     return( 0 );
 }
 #endif /* MBEDTLS_PEM_WRITE_C */
